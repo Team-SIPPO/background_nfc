@@ -60,6 +60,7 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+    namespace 'io.github.team_sippo.background_nfc.background_nfc_example'
 }
 
 flutter {
