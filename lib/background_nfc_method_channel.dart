@@ -14,4 +14,5 @@ class MethodChannelBackgroundNfc extends BackgroundNfcPlatform {
     final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
     return version;
   }
+
 }

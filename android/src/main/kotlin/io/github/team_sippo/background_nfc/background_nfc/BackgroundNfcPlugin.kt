@@ -38,23 +38,27 @@ class BackgroundNfcPlugin: FlutterPlugin, EventChannel.StreamHandler, MethodCall
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
   private lateinit var channel : MethodChannel
+  private lateinit var tagChannel: EventChannel
   private val LOG_TAG = "BackgroundNfcPlugin"
   private val NORMAL_READER_MODE = "normal"
   private val DISPATCH_READER_MODE = "dispatch"
   private val DEFAULT_READER_FLAGS =
     NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V
 
-  private val activity: Activity? = null
+  private var activity: Activity? = null
   private val adapter: NfcAdapter? = null
   private var events: EventSink? = null
   private var binding: ActivityPluginBinding? = null
 
   private val currentReaderMode: String? = null
   private var lastTag: Tag? = null
+  private var resultBuffer: MutableList<Map<*, *>> = mutableListOf();
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "background_nfc")
     channel.setMethodCallHandler(this)
+    tagChannel = EventChannel(flutterPluginBinding.binaryMessenger, "background_nfc/tags")
+    tagChannel.setStreamHandler(this)
   }
 
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
@@ -86,11 +90,15 @@ class BackgroundNfcPlugin: FlutterPlugin, EventChannel.StreamHandler, MethodCall
     val record = result["records"] as List<Map<String, *>>
     Log.d(LOG_TAG, record[0]["payload"].toString())
     Log.d(LOG_TAG, "---------------")
-    eventSuccess(result)
+    if (this.events == null){
+      resultBuffer.add(result)
+    } else{
+      eventSuccess(result)
+    }
   }
 
   private fun eventSuccess(result: Any?) {
-    val mainThread = Handler(activity!!.getMainLooper())
+    val mainThread = Handler(activity!!.mainLooper)
     val runnable = Runnable {
       if (events != null) {
         // Event stream must be handled on main/ui thread
@@ -101,7 +109,7 @@ class BackgroundNfcPlugin: FlutterPlugin, EventChannel.StreamHandler, MethodCall
   }
 
   private fun eventError(code: String, message: String, details: Any?) {
-    val mainThread = Handler(activity!!.getMainLooper())
+    val mainThread = Handler(activity!!.mainLooper)
     val runnable = Runnable {
       events?.error(code, message, details)
     }
@@ -364,7 +372,13 @@ class BackgroundNfcPlugin: FlutterPlugin, EventChannel.StreamHandler, MethodCall
   }
 
   override fun onListen(arguments: Any?, eventSink: EventSink?) {
+    val flag = events == null
     this.events = eventSink
+    if(flag){
+      for(result in resultBuffer){
+        eventSuccess(result)
+      }
+    }
   }
 
   private fun formatEmptyNDEFMessage(ndef: Ndef): Map<String, Any?> {
@@ -386,12 +400,13 @@ class BackgroundNfcPlugin: FlutterPlugin, EventChannel.StreamHandler, MethodCall
   }
 
   private fun handleIntent(intent: Intent, initial: Boolean) {
-    onNewIntent(intent)
+    onNewIntent(intent);
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
     Log.d(LOG_TAG, "onAttachedToActivity")
     this.binding = binding
+    this.activity = this.binding!!.activity
     binding.addOnNewIntentListener(this)
     handleIntent(binding.activity.intent, true)
   }
