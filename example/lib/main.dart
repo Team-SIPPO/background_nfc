@@ -1,3 +1,4 @@
+import 'package:background_nfc/parse_nfc_message.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 
@@ -17,12 +18,22 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
+  String _nfc = "aaa";
   final _backgroundNfcPlugin = BackgroundNfc();
 
   @override
   void initState() {
     super.initState();
+    BackgroundNfc().detectNFCStream().listen((event){
+      assert(event is NDEFMessage);
+      NDEFMessage eve = event;
+      print(eve.records.first.payload);
+      setState((){
+        _nfc = eve.records.first.payload;
+      });
+    });
     initPlatformState();
+    
   }
 
   // Platform messages are asynchronous, so we initialize in an async method.
@@ -55,7 +66,7 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: Text('Running on: $_platformVersion\n $_nfc'),
         ),
       ),
     );
