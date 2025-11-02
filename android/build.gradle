@@ -25,6 +25,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace "io.github.team_sippo.background_nfc.background_nfc"
     compileSdkVersion 31
 
     compileOptions {
